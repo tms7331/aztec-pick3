@@ -67,28 +67,23 @@ contract Pick3Portal {
     }
 
     /**
-     * @notice Withdraw funds from the portal
-     * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox
+     * @notice Withdraw funds from the portal, only called if the guess was correct
      * @param _recipient - The address to send the funds to
      * @param _amount - The amount to withdraw
-     * @param _withCaller - Flag to use `msg.sender` as caller, otherwise address(0)
-     * Must match the caller of the message (specified from L2) to consume it.
      * @return The key of the entry in the Outbox
      */
     function withdraw(
         address _recipient,
         uint256 _amount,
-        bool _withCaller
     ) external returns (bytes32) {
         DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
             sender: DataStructures.L2Actor(l2Bridge, 1),
             recipient: DataStructures.L1Actor(address(this), block.chainid),
             content: Hash.sha256ToField(
                 abi.encodeWithSignature(
-                    "withdraw(address,uint256,address)",
+                    "withdraw(address,uint256)",
                     _recipient,
                     _amount,
-                    _withCaller ? msg.sender : address(0)
                 )
             )
         });

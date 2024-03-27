@@ -14,6 +14,30 @@ contract Pick3 {
         prize_pool: PublicMutable<Field>,
     }
 
+    pub fn compute_withdraw_hash(
+        recipient: EthAddress,
+        amount: Field,
+    ) -> Field {
+        let mut hash_bytes = [0; 68]; // 2 fields of 32 bytes each + 4 bytes fn selector
+
+        let recipient_bytes = recipient.to_field().to_be_bytes(32);
+        let amount_bytes = amount.to_be_bytes(32);
+
+        // function selector: 0xf3fef3a3 keccak256("withdraw(address,uint256)")
+        hash_bytes[0] = 0xf3;
+        hash_bytes[1] = 0xfe;
+        hash_bytes[2] = 0xf3;
+        hash_bytes[3] = 0xa3;
+
+        for i in 0..32 {
+            hash_bytes[i + 4] = recipient_bytes[i];
+            hash_bytes[i + 36] = amount_bytes[i];
+        }
+
+        let content_hash = sha256_to_field(hash_bytes);
+        content_hash
+    }
+
     #[aztec(public)]
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress) {
@@ -41,9 +65,9 @@ contract Pick3 {
         // If they guessed the number - cash out full prize pool!
         if storage.secret_num == pick3_guess {
             let amount = storage.prize_pool;
-            // TODO - how can we compute hash?
-            let content = compute_hash_somehow(recipient, amount);
+            let content = compute_withdraw_hash(recipient, amount);
             context.message_portal(content);
+            // context.message_portal(context.this_portal_address(), content_hash);
 
             // Reset game...
             storage.prize_pool.write(0);
