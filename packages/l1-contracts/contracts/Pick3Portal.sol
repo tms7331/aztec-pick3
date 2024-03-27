@@ -34,7 +34,7 @@ contract Pick3Portal {
      * @return The key of the entry in the Inbox
      */
     function depositToAztecPrivate(
-        bytes32 _secretHashForGuess,
+        bytes32 _secretHashForRedeeming,
         bytes32 _secretHashForL2MessageConsumption
     ) external returns (bytes32) {
         // Preamble
@@ -48,7 +48,7 @@ contract Pick3Portal {
         bytes32 contentHash = Hash.sha256ToField(
             abi.encodeWithSignature(
                 "make_guess(bytes32)",
-                _secretHashForGuess,
+                _secretHashForRedeeming,
             )
         );
 
