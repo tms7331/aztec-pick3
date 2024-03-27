@@ -38,6 +38,25 @@ contract Pick3 {
         content_hash
     }
 
+    pub fn get_make_guess_content_hash(
+        secret_hash_for_redeeming: Field,
+    ) -> Field {
+        let mut hash_bytes = [0; 36];
+        let secret_hash_bytes = secret_hash_for_redeeming.to_be_bytes(32);
+
+        for i in 0..32 {
+            hash_bytes[i + 4] = secret_hash_bytes[i];
+        }
+        // Function selector: 0xd161a8eb keccak256('make_guess(bytes32)')
+        hash_bytes[0] = 0xd1;
+        hash_bytes[1] = 0x61;
+        hash_bytes[2] = 0xa8;
+        hash_bytes[3] = 0xeb;
+
+        let content_hash = sha256_to_field(hash_bytes);
+        content_hash
+    }
+
     #[aztec(public)]
     #[aztec(initializer)]
     fn constructor(admin: AztecAddress) {
@@ -46,7 +65,7 @@ contract Pick3 {
         storage.prize_pool.initialize(0);
         // Initialize secret num to 1000 (to avoid exploit where someone guesses 0 before 
         // game is fully set up - our check that number is 3 digits will block it)
-        storage.secret_num.initialize(0);
+        storage.secret_num.initialize(1000);
     }
 
     #[aztec(private)]
@@ -64,7 +83,8 @@ contract Pick3 {
         }
         // If they guessed the number - cash out full prize pool!
         if storage.secret_num == pick3_guess {
-            let amount = storage.prize_pool;
+            // Have to convert amount to 6 decimals to match USDC precision
+            let amount = storage.prize_pool * 10**6;
             let content = compute_withdraw_hash(recipient, amount);
             context.message_portal(content);
             // context.message_portal(context.this_portal_address(), content_hash);
@@ -75,18 +95,17 @@ contract Pick3 {
         // Should we emit an event or something if they guess wrong?
     }
 
-    // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount in private assets
+    // Consumes a L1->L2 message and allows user to make a guess at 3 digit number
     #[aztec(private)]
     fn claim_and_make_guess_private(
         secret_hash_for_redeeming: Field, // Corresponds to value in Pick3Portal.sol
-        canceller: EthAddress,
         msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret_for_L1_to_L2_message_consumption: Field // secret used to consume the L1 to L2 message
         pick3_guess: U128,  // Separate from the claim, we'll include our guess and cashout address for if we win
         recipient: EthAddress,
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = compute_hash_somehow(secret_hash_for_redeeming, canceller);
+        let content_hash = get_make_guess_content_hash(secret_hash_for_redeeming);
         context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
 
         // If we've made it past the check, we can proceed with their guess
