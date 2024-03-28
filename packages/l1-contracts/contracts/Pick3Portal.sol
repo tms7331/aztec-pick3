@@ -35,22 +35,15 @@ contract Pick3Portal {
      */
     function depositToAztecPrivate(
         bytes32 _secretHashForRedeeming,
-        bytes32 _secretHashForL2MessageConsumption
+        address _recipient
     ) external returns (bytes32) {
         // Preamble
         IInbox inbox = registry.getInbox();
-        DataStructures.L2Actor memory actor = DataStructures.L2Actor(
-            l2Bridge,
-            1
-        );
+        DataStructures.L2Actor memory actor = DataStructures.L2Actor(l2Bridge, 1);
 
         // Hash the message content to be reconstructed in the receiving contract
         bytes32 contentHash = Hash.sha256ToField(
-            abi.encodeWithSignature(
-                "make_guess(bytes32)",
-                _secretHashForRedeeming,
-            )
-        );
+            abi.encodeWithSignature("make_guess(address)", _recipient));
 
         // Cost to guess will always be 100 USDC (which has 6 decimals)
         uint256 amount = 100 * 10 ** 6;
@@ -58,12 +51,7 @@ contract Pick3Portal {
         usdc.safeTransferFrom(msg.sender, address(this), amount);
 
         // Send message to rollup
-        return
-            inbox.sendL2Message(
-                actor,
-                contentHash,
-                _secretHashForL2MessageConsumption
-            );
+        return inbox.sendL2Message(actor, contentHash, _secretHashForL2MessageConsumption);
     }
 
     /**

@@ -18,6 +18,8 @@ contract Pick3 {
         recipient: EthAddress,
         amount: Field,
     ) -> Field {
+        // Based off hash calculation here:
+        // https://docs.aztec.network/developers/tutorials/uniswap/swap_publicly
         let mut hash_bytes = [0; 68]; // 2 fields of 32 bytes each + 4 bytes fn selector
 
         let recipient_bytes = recipient.to_field().to_be_bytes(32);
@@ -39,13 +41,13 @@ contract Pick3 {
     }
 
     pub fn get_make_guess_content_hash(
-        secret_hash_for_redeeming: Field,
+        recipient: EthAddress,
     ) -> Field {
         let mut hash_bytes = [0; 36];
-        let secret_hash_bytes = secret_hash_for_redeeming.to_be_bytes(32);
+        let recipient_bytes = recipient.to_field().to_be_bytes(32);
 
         for i in 0..32 {
-            hash_bytes[i + 4] = secret_hash_bytes[i];
+            hash_bytes[i + 4] = recipient_bytes[i];
         }
         // Function selector: 0xd161a8eb keccak256('make_guess(bytes32)')
         hash_bytes[0] = 0xd1;
@@ -98,14 +100,13 @@ contract Pick3 {
     // Consumes a L1->L2 message and allows user to make a guess at 3 digit number
     #[aztec(private)]
     fn claim_and_make_guess_private(
-        secret_hash_for_redeeming: Field, // Corresponds to value in Pick3Portal.sol
         msg_key: Field, // L1 to L2 message key as derived from the inbox contract
         secret_for_L1_to_L2_message_consumption: Field // secret used to consume the L1 to L2 message
         pick3_guess: U128,  // Separate from the claim, we'll include our guess and cashout address for if we win
         recipient: EthAddress,
     ) {
         // Consume L1 to L2 message and emit nullifier
-        let content_hash = get_make_guess_content_hash(secret_hash_for_redeeming);
+        let content_hash = get_make_guess_content_hash(recipient);
         context.consume_l1_to_l2_message(msg_key, content_hash, secret_for_L1_to_L2_message_consumption);
 
         // If we've made it past the check, we can proceed with their guess
